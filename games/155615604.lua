@@ -96,11 +96,11 @@ end
 local OriginScanner = {Cache = {}}
 run(function()
 	local rayParams = RaycastParams.new()
-	local rayParams2 = OverlapParams.new()
+	local overlapParams = OverlapParams.new()
 	rayParams.CollisionGroup = 'ClientBullet'
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	rayParams2.CollisionGroup = 'ClientBullet'
-	rayParams2.FilterType = Enum.RaycastFilterType.Exclude
+	overlapParams.CollisionGroup = 'ClientBullet'
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
 	OriginScanner.Ray = rayParams
 
 	local positions = {
@@ -153,7 +153,7 @@ run(function()
 					if (vec * Vector3.new(1, 0, 1)):Dot(-diff) > -0.5 then
 						local pos = target + vec * 6
 
-						if checkPoint(pos, rayParams2) then
+						if checkPoint(pos, overlapParams) then
 							table.insert(hitboxPositions, pos)
 						end
 					end
@@ -174,7 +174,7 @@ run(function()
 				for _, pos in scanPositions do
 					local ray = workspace:Raycast(hitbox, (pos - hitbox), rayParams)
 
-					if not ray and checkPoint(pos, rayParams2) then
+					if not ray and checkPoint(pos, overlapParams) then
 						OriginScanner.Cache[part] = {pos, hitbox}
 						return pos, hitbox
 					end
@@ -184,7 +184,7 @@ run(function()
 			for _, pos in scanPositions do
 				local ray = workspace:Raycast(target, (pos - target), rayParams)
 
-				if not ray and checkPoint(pos, rayParams2) then
+				if not ray and checkPoint(pos, overlapParams) then
 					OriginScanner.Cache[part] = {pos}
 					return pos
 				end
@@ -194,12 +194,12 @@ run(function()
 
 	function OriginScanner:UpdateIgnore()
 		local ignore = {lplr.Character}
-		for _, v in entitylib.List do
-			table.insert(ignore, v.Character)
+		for _, entity in entitylib.List do
+			table.insert(ignore, entity.Character)
 		end
 
 		rayParams.FilterDescendantsInstances = ignore
-		rayParams2.FilterDescendantsInstances = ignore
+		overlapParams.FilterDescendantsInstances = ignore
 	end
 end)
 
@@ -237,66 +237,66 @@ run(function()
 		return inputService.GetMouseLocation(inputService)
 	end
 
-	entitylib.getUpdateConnections = function(ent)
-		local hum = ent.Humanoid
+	entitylib.getUpdateConnections = function(entity)
+		local humanoid = entity.Humanoid
 		return {
-			hum:GetPropertyChangedSignal('Health'),
-			hum:GetPropertyChangedSignal('MaxHealth'),
-			ent.Character:GetAttributeChangedSignal('Trespassing'),
-			ent.Character:GetAttributeChangedSignal('Hostile'),
-			ent.Player:GetAttributeChangedSignal('InnocentKills'),
+			humanoid:GetPropertyChangedSignal('Health'),
+			humanoid:GetPropertyChangedSignal('MaxHealth'),
+			entity.Character:GetAttributeChangedSignal('Trespassing'),
+			entity.Character:GetAttributeChangedSignal('Hostile'),
+			entity.Player:GetAttributeChangedSignal('InnocentKills'),
 			{
 				Connect = function()
-					ent.Friend = ent.Player and isFriend(ent.Player) or nil
-					ent.Target = ent.Player and isTarget(ent.Player) or nil
+					entity.Friend = entity.Player and isFriend(entity.Player) or nil
+					entity.Target = entity.Player and isTarget(entity.Player) or nil
 					return {Disconnect = function() end}
 				end
 			}
 		}
 	end
 
-	entitylib.targetCheck = function(ent)
-		if ent.TeamCheck then
-			return ent:TeamCheck()
+	entitylib.targetCheck = function(entity)
+		if entity.TeamCheck then
+			return entity:TeamCheck()
 		end
-		if ent.NPC then return true end
-		if isFriend(ent.Player) then return false end
-		if not select(2, whitelist:get(ent.Player)) then return false end
+		if entity.NPC then return true end
+		if isFriend(entity.Player) then return false end
+		if not select(2, whitelist:get(entity.Player)) then return false end
 		if vape.Categories.Main.Options['Teams by server'].Enabled then
-			return lplr.Team ~= ent.Player.Team and ent.Player.Team ~= teams.Neutral
+			return lplr.Team ~= entity.Player.Team and entity.Player.Team ~= teams.Neutral
 		end
 		return true
 	end
 
-	entitylib.isVulnerable = function(ent, attackcheck)
-		if attackcheck and lplr.Team == teams.Guards and ent.Player.Team == teams.Inmates and not ent.Character:GetAttribute('Hostile') then
+	entitylib.isVulnerable = function(entity, attackcheck)
+		if attackcheck and lplr.Team == teams.Guards and entity.Player.Team == teams.Inmates and not entity.Character:GetAttribute('Hostile') then
 			return false
 		end
 
-		return ent.Humanoid:GetState() ~= Enum.HumanoidStateType.Dead and ent.SpawnTime < os.clock() and not ent.Character.FindFirstChildWhichIsA(ent.Character, 'ForceField') and (ent.Player.Team ~= teams.Inmates or (ent.Character:GetAttribute('Trespassing') or ent.Character:GetAttribute('Hostile')))
+		return entity.Health > 0 and entity.Humanoid:GetState() ~= Enum.HumanoidStateType.Dead and entity.SpawnTime < os.clock() and not entity.Character.FindFirstChildWhichIsA(entity.Character, 'ForceField') and (entity.Player.Team ~= teams.Inmates or (entity.Character:GetAttribute('Trespassing') or entity.Character:GetAttribute('Hostile')))
 	end
 
 	entitylib.EntityMouse = function(entitysettings)
 		if entitylib.isAlive then
 			local mouseLocation, sortingTable = entitysettings.MouseOrigin or getMousePosition(), {}
 			local localPosition = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position
-			for _, v in entitylib.List do
-				if not entitysettings.Players and v.Player then continue end
-				if not entitysettings.NPCs and v.NPC then continue end
-				if not v.Targetable then continue end
-				local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v[entitysettings.Part].Position)
+			for _, entity in entitylib.List do
+				if not entitysettings.Players and entity.Player then continue end
+				if not entitysettings.NPCs and entity.NPC then continue end
+				if not entity.Targetable then continue end
+				local position, vis = gameCamera.WorldToViewportPoint(gameCamera, entity[entitysettings.Part].Position)
 				if not vis then continue end
 				local mag = (mouseLocation - Vector2.new(position.x, position.y)).Magnitude
 				if mag > entitysettings.Range then continue end
-				if entitylib.isVulnerable(v, entitysettings.AttackCheck) then
+				if entitylib.isVulnerable(entity, entitysettings.AttackCheck) then
 					if entitysettings.RangePosition then
-						local pmag = (v[entitysettings.Part].Position - localPosition).Magnitude
+						local pmag = (entity[entitysettings.Part].Position - localPosition).Magnitude
 						if pmag > entitysettings.RangePosition then continue end
 					end
 
 					table.insert(sortingTable, {
-						Entity = v,
-						Magnitude = v.Target and -1 or mag
+						Entity = entity,
+						Magnitude = entity.Target and -1 or mag
 					})
 				end
 			end
@@ -321,16 +321,16 @@ run(function()
 	entitylib.EntityPosition = function(entitysettings)
 		if entitylib.isAlive then
 			local localPosition, sortingTable = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position, {}
-			for _, v in entitylib.List do
-				if not entitysettings.Players and v.Player then continue end
-				if not entitysettings.NPCs and v.NPC then continue end
-				if not v.Targetable then continue end
-				local mag = (v[entitysettings.Part].Position - localPosition).Magnitude
+			for _, entity in entitylib.List do
+				if not entitysettings.Players and entity.Player then continue end
+				if not entitysettings.NPCs and entity.NPC then continue end
+				if not entity.Targetable then continue end
+				local mag = (entity[entitysettings.Part].Position - localPosition).Magnitude
 				if mag > entitysettings.Range then continue end
-				if entitylib.isVulnerable(v, entitysettings.AttackCheck) then
+				if entitylib.isVulnerable(entity, entitysettings.AttackCheck) then
 					table.insert(sortingTable, {
-						Entity = v,
-						Magnitude = v.Target and -1 or mag
+						Entity = entity,
+						Magnitude = entity.Target and -1 or mag
 					})
 				end
 			end
@@ -356,14 +356,17 @@ run(function()
 		local returned = {}
 		if entitylib.isAlive then
 			local localPosition, sortingTable = entitysettings.Origin or entitylib.character.HumanoidRootPart.Position, {}
-			for _, v in entitylib.List do
-				if not entitysettings.Players and v.Player then continue end
-				if not entitysettings.NPCs and v.NPC then continue end
-				if not v.Targetable then continue end
-				local mag = (v[entitysettings.Part].Position - localPosition).Magnitude
+			for _, entity in entitylib.List do
+				if not entitysettings.Players and entity.Player then continue end
+				if not entitysettings.NPCs and entity.NPC then continue end
+				if not entity.Targetable then continue end
+				local mag = (entity[entitysettings.Part].Position - localPosition).Magnitude
 				if mag > entitysettings.Range then continue end
-				if entitylib.isVulnerable(v, entitysettings.AttackCheck) then
-					table.insert(sortingTable, {Entity = v, Magnitude = v.Target and -1 or mag})
+				if entitylib.isVulnerable(entity, entitysettings.AttackCheck) then
+					table.insert(sortingTable, {
+						Entity = entity,
+						Magnitude = entity.Target and -1 or mag
+					})
 				end
 			end
 
@@ -500,7 +503,10 @@ run(function()
 	vape:Clean(replicatedStorage.Remotes.MessageReceived.OnClientEvent:Connect(function(msg)
 		if msg:find('kicked') then
 			cheaterkicked:Increment()
-			vapeEvents.CheaterKicked:Fire(msg:sub(1, msg:find(' ')))
+
+			task.defer(function()
+				vapeEvents.CheaterKicked:Fire(msg:sub(1, msg:find(' ')))
+			end)
 		end
 	end))
 
@@ -1372,6 +1378,20 @@ run(function()
 end)
 
 run(function()
+	local FenceGodmode
+	
+	FenceGodmode = vape.Categories.Blatant:CreateModule({
+		Name = 'FenceGodmode',
+		Function = function(callback)
+			for _, fence in workspace.Prison_Fences:QueryDescendants('BasePart:has(> TouchTransmitter)') do
+				fence.CanTouch = not callback
+			end
+		end,
+		Tooltip = 'Ignore damage from standing ontop of fences.'
+	})
+end)
+
+run(function()
 	local GunModifications
 	local Spread
 	local FireRate
@@ -1440,6 +1460,77 @@ run(function()
 	Automatic = GunModifications:CreateToggle({
 		Name = 'Full Automatic',
 		Function = Modify
+	})
+end)
+
+run(function()
+	local KickAll
+	
+	KickAll = vape.Categories.Blatant:CreateModule({
+		Name = 'KickAll',
+		Function = function(callback)
+			if callback then
+				local cf = {}
+				local flingtimes = {}
+				local flingcooldown = {}
+				KickAll:Clean(runService.Heartbeat:Connect(function()
+					local seat = entitylib.isAlive and entitylib.character.Humanoid.SeatPart
+					if not (seat and seat:IsDescendantOf(workspace.CarContainer) and seat.Name == 'VehicleSeat') then
+						notif('KickAll', 'Vehicle required!', 10)
+						KickAll:Toggle()
+						return
+					end
+	
+					local wheelIndex = 1
+					local wheels = seat.Parent.Parent.Wheels:QueryDescendants('Rotate')
+					local targets = table.clone(entitylib.List)
+	
+					table.sort(targets, function(a, b)
+						return (a.RootPart.Position - seat.Position).Magnitude < (b.RootPart.Position - seat.Position).Magnitude
+					end)
+	
+					for _, entity in targets do
+						if (os.clock() - entity.SpawnTime) > 5 and entity.Health > 0 and entity.Humanoid:GetState() ~= Enum.HumanoidStateType.Dead and select(2, whitelist:get(entity.Player)) and not (entity.Humanoid.SeatPart and entity.Humanoid.SeatPart.Anchored) and entity.RootPart.AssemblyLinearVelocity.Magnitude < 60 then
+							local wheel = wheels[wheelIndex]
+							if not wheel then
+								break
+							end
+	
+							if not cf[wheel] then
+								cf[wheel] = wheel.Part1.CFrame
+							end
+	
+							local target = entity.Humanoid.Torso or entity.RootPart
+							sethiddenproperty(wheel.Part0, 'PhysicsRepRootPart', entity.RootPart)
+							wheel.Part0.CFrame = CFrame.new(target.Position) * CFrame.Angles(0, math.rad(90), 0)
+							wheel.Part1.CFrame = cf[wheel]
+							wheel.Part0.AssemblyLinearVelocity = Vector3.new(50, 0, 0)
+							wheel.Part0.AssemblyAngularVelocity = Vector3.zero
+							wheel.Part1.AssemblyLinearVelocity = Vector3.zero
+							wheel.Part1.AssemblyAngularVelocity = Vector3.zero
+	
+							wheelIndex += 1
+						end
+					end
+	
+					for i = 1, #wheels - wheelIndex do
+						local wheel = wheels[wheelIndex]
+						if cf[wheel] then
+							wheel.Part0.CFrame = cf[wheel]
+							wheel.Part1.CFrame = cf[wheel]
+						end
+	
+						wheel.Part0.AssemblyLinearVelocity = Vector3.zero
+						wheel.Part0.AssemblyAngularVelocity = Vector3.zero
+						wheel.Part1.AssemblyLinearVelocity = Vector3.zero
+						wheel.Part1.AssemblyAngularVelocity = Vector3.zero
+					end
+	
+					table.clear(targets)
+				end))
+			end
+		end,
+		Tooltip = 'kick everyone in the server'
 	})
 end)
 
@@ -2236,25 +2327,31 @@ end)
 
 run(function()
 	local AutoToxic
-	local Toggles, Lists, said, dead = {}, {}, {}
+	local Toggles, Lists, Cloned, Presets = {}, {}, {}, {}
 	
 	local function sendMessage(name, obj, default)
-		local tab = Lists[name].ListEnabled
-		local custommsg = #tab > 0 and tab[math.random(1, #tab)] or default
-		if not custommsg then return end
-		if #tab > 1 and custommsg == said[name] then
-			repeat 
-				task.wait() 
-				custommsg = tab[math.random(1, #tab)] 
-			until custommsg ~= said[name]
-		end
-		said[name] = custommsg
+		local message = default
+		if #Lists[name].ListEnabled > 0 then
+			if #Cloned[name] <= 0 then
+				Cloned[name] = table.clone(Lists[name].ListEnabled)
+			end
 	
-		custommsg = custommsg and custommsg:gsub('<obj>', obj or '') or ''
+			local entry = Random.new():NextInteger(1, #Cloned[name])
+			message = Cloned[name][entry]
+			table.remove(Cloned[name], entry)
+		end
+	
+		if not message then return end
+	
+		message = message and message:gsub('<obj>', obj or '') or ''
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-			textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(custommsg)
+			if textChatService:CanUserChatAsync(lplr.UserId) then
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
+			else
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
+			end
 		else
-			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(custommsg, 'All')
+			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
 		end
 	end
 	
@@ -2270,6 +2367,7 @@ run(function()
 		Tooltip = 'Says a message after a certain action'
 	})
 	for _, v in {'Kicked'} do
+		Cloned[v] = {}
 		Toggles[v] = AutoToxic:CreateToggle({
 			Name = v..' ',
 			Function = function(callback)
@@ -2282,9 +2380,21 @@ run(function()
 		Lists[v] = AutoToxic:CreateTextList({
 			Name = v,
 			Darker = true,
-			Visible = false
+			Function = function()
+				table.clear(Cloned[v])
+			end
 		})
 	end
+	
+	pcall(function()
+		for _, group in textChatService:GetPresetsAsync().categoryGroups do
+			for _, category in group.categories do
+				for _, message in category.messages do
+					Presets[message.value] = message.presetId
+				end
+			end
+		end
+	end)
 end)
 
 run(function()

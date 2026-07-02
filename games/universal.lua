@@ -525,10 +525,21 @@ run(function()
 			if getcallbackvalue and restorefunction and hookfunction then
 				local old
 				task.spawn(function()
+					vape:Clean(function()
+						if old then
+							restorefunction(old)
+							old = nil
+						end
+					end)
+
 					repeat
 						local current = getcallbackvalue(textChatService, 'OnIncomingMessage')
 
 						if old ~= current then
+							if old then
+								restorefunction(old)
+							end
+
 							local hook
 							hook = hookfunction(current, function(...)
 								local msg = ...
@@ -553,10 +564,6 @@ run(function()
 
 						task.wait(0.1)
 					until vape.Loaded == nil
-
-					if old then
-						restorefunction(old)
-					end
 				end)
 			end
 		elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
@@ -6322,6 +6329,7 @@ run(function()
 	local Mode
 	local Delay
 	local Hide
+	local RandomList = {}
 	local oldchat
 	
 	ChatSpammer = vape.Categories.Utility:CreateModule({
@@ -6348,13 +6356,23 @@ run(function()
 					ChatSpammer:Toggle()
 					return
 				end
-				
-				local ind = 1
+	
+				local index = 1
 				repeat
-					local message = (#Lines.ListEnabled > 0 and Lines.ListEnabled[math.random(1, #Lines.ListEnabled)] or 'vxpe on top')
-					if Mode.Value == 'Order' and #Lines.ListEnabled > 0 then
-						message = Lines.ListEnabled[ind] or Lines.ListEnabled[1]
-						ind = (ind % #Lines.ListEnabled) + 1
+					local message = 'vxpe on top'
+					if #Lines.ListEnabled > 0 then
+						if Mode.Value == 'Order' then
+							message = Lines.ListEnabled[index] or Lines.ListEnabled[1]
+							index = (index % #Lines.ListEnabled) + 1
+						else
+							if #RandomList <= 0 then
+								RandomList = table.clone(Lines.ListEnabled)
+							end
+	
+							local entry = Random.new():NextInteger(1, #RandomList)
+							message = RandomList[entry]
+							table.remove(RandomList, entry)
+						end
 					end
 	
 					if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
@@ -6373,7 +6391,12 @@ run(function()
 		end,
 		Tooltip = 'Automatically types in chat'
 	})
-	Lines = ChatSpammer:CreateTextList({Name = 'Lines'})
+	Lines = ChatSpammer:CreateTextList({
+		Name = 'Lines',
+		Function = function()
+			table.clear(RandomList)
+		end
+	})
 	Mode = ChatSpammer:CreateDropdown({
 		Name = 'Mode',
 		List = {'Random', 'Order'}

@@ -190,14 +190,14 @@ run(function()
 		return returned
 	end
 
-	entitylib.getUpdateConnections = function(ent)
-		local healthval = ent.Player:FindFirstChild('health', true)
-		local maxhealthval = ent.Player:FindFirstChild('health_max', true)
+	entitylib.getUpdateConnections = function(entity)
+		local healthval = entity.Player:FindFirstChild('health', true)
+		local maxhealthval = entity.Player:FindFirstChild('health_max', true)
 		local connections = {
 			{
 				Connect = function()
-					ent.Friend = ent.Player and isFriend(ent.Player) or nil
-					ent.Target = ent.Player and isTarget(ent.Player) or nil
+					entity.Friend = entity.Player and isFriend(entity.Player) or nil
+					entity.Target = entity.Player and isTarget(entity.Player) or nil
 					return {Disconnect = function() end}
 				end
 			}
@@ -271,13 +271,13 @@ run(function()
 	end
 
 	if game.PlaceId == 126691165749976 then
-		entitylib.targetCheck = function(ent)
-			if ent.NPC then return true end
-			if isFriend(ent.Player) then return false end
-			if not select(2, whitelist:get(ent.Player)) then return false end
+		entitylib.targetCheck = function(entity)
+			if entity.NPC then return true end
+			if isFriend(entity.Player) then return false end
+			if not select(2, whitelist:get(entity.Player)) then return false end
 			if vape.Categories.Main.Options['Teams by server'].Enabled then
 				if not redline.Teams[tostring(lplr.UserId)] then return true end
-				return redline.Teams[tostring(ent.Player.UserId)] ~= redline.Teams[tostring(lplr.UserId)]
+				return redline.Teams[tostring(entity.Player.UserId)] ~= redline.Teams[tostring(lplr.UserId)]
 			end
 
 			return true
@@ -288,15 +288,17 @@ run(function()
 
 			if plr and entitylib.Running then
 				if plr == lplr then
-					for _, v in entitylib.List do
-						if v.Targetable ~= entitylib.targetCheck(v) then
-							entitylib.refreshEntity(v.Character, v.Player)
+					local cloned = table.clone(entitylib.List)
+					for _, entity in cloned do
+						if entity.Targetable ~= entitylib.targetCheck(entity) then
+							entitylib.refreshEntity(entity.Character, entity.Player)
 						end
 					end
+					table.clear(cloned)
 				else
-					local ent = entitylib.getEntity(plr)
-					if ent and ent.Targetable ~= entitylib.targetCheck(ent) then
-						entitylib.refreshEntity(ent.Character, plr)
+					local entity = entitylib.getEntity(plr)
+					if entity and entity.Targetable ~= entitylib.targetCheck(entity) then
+						entitylib.refreshEntity(entity.Character, plr)
 					end
 				end
 			end
@@ -745,115 +747,6 @@ run(function()
 end)
 
 run(function()
-	local AlwaysStun
-	local Spoof
-	local oldsend, oldrepl, oldbuf
-	
-	local function AddHook()
-		if not (AlwaysStun.Enabled and redline.ReplicateFunction) then
-			return
-		end
-	
-		oldsend = hookfunction(redline.Packet.Fire, function(...)
-			local self = ...
-			if self and rawget(self, 'Name') == redline.AttackPacket then
-				local args = table.pack(...)
-				if type(args[7]) == 'number' then
-					args[7] = Spoof.Value
-				end
-	
-				return oldsend(unpack(args, 1, args.n))
-			end
-	
-			return oldsend(...)
-		end)
-	
-		local dumped, dumpcaller
-		oldrepl = hookfunction(redline.ReplicateFunction, function(...)
-			local msg = ...
-	
-			if dumped then
-				if debug.info(2, 's') == dumpcaller or debug.info(3, 's') == dumpcaller then
-					buffer.writef32(msg, dumped, Spoof.Value)
-				end
-			end
-	
-			return oldrepl(...)
-		end)
-	
-		oldbuf = hookfunction(buffer.writef32, function(...)
-			local buf, ind, data = ...
-			if data == -2.25 then
-				dumped = ind
-				dumpcaller = debug.info(3, 's')
-	
-				task.defer(function()
-					if oldbuf then
-						if restorefunction then
-							restorefunction(buffer.writef32)
-						else
-							hookfunction(buffer.writef32, oldbuf)
-						end
-	
-						oldbuf = nil
-					end
-				end)
-			end
-	
-			return oldbuf(...)
-		end)
-	end
-	
-	AlwaysStun = vape.Categories.Blatant:CreateModule({
-		Name = 'AlwaysStun',
-		Function = function(callback)
-			if callback then
-				if (os.clock() - starttime) < 2 then
-					task.delay(2, AddHook)
-				else
-					AddHook()
-				end
-			else
-				if oldsend then
-					if restorefunction then
-						restorefunction(redline.Packet.Fire)
-					else
-						hookfunction(redline.Packet.Fire, oldsend)
-					end
-					oldsend = nil
-				end
-	
-				if oldrepl then
-					if restorefunction then
-						restorefunction(redline.ReplicateFunction)
-					else
-						hookfunction(redline.ReplicateFunction, oldrepl)
-					end
-					oldrepl = nil
-				end
-	
-				if oldbuf then
-					if restorefunction then
-						restorefunction(buffer.writef32)
-					else
-						hookfunction(buffer.writef32, oldbuf)
-					end
-					oldbuf = nil
-				end
-			end
-		end,
-		Tooltip = 'Spoofs velocity to a high value to win every clash.'
-	})
-	Spoof = AlwaysStun:CreateSlider({
-		Name = 'Spoof value',
-		Min = 300,
-		Max = 800,
-		Default = 800,
-		Suffix = 'sps'
-	})
-end)
-
-run(function()
 	local AntiParry
 	local anims = {
 		[replicatedStorage.Assets.Animations:FindFirstChild('3P_Parry', true).AnimationId] = true
@@ -935,6 +828,122 @@ run(function()
 			end
 		end,
 		Tooltip = 'lol'
+	})
+end)
+
+run(function()
+	local ClashSpoofer
+	local Spoof
+	local Add
+	local oldsend, oldrepl, oldbuf
+	
+	local function AddHook()
+		if not (ClashSpoofer.Enabled and redline.ReplicateFunction) then
+			return
+		end
+	
+		oldsend = hookfunction(redline.Packet.Fire, function(...)
+			local self = ...
+			if self and rawget(self, 'Name') == redline.AttackPacket then
+				local args = table.pack(...)
+				if type(args[7]) == 'number' then
+					args[7] = Add.Enabled and args[7] + Spoof.Value or Spoof.Value
+				end
+	
+				return oldsend(unpack(args, 1, args.n))
+			end
+	
+			return oldsend(...)
+		end)
+	
+		local dumped, dumpcaller
+		oldrepl = hookfunction(redline.ReplicateFunction, function(...)
+			local msg = ...
+	
+			if dumped then
+				if debug.info(2, 's') == dumpcaller or debug.info(3, 's') == dumpcaller then
+					buffer.writef32(msg, dumped, Add.Enabled and buffer.readf32(msg, dumped) + Spoof.Value or Spoof.Value)
+				end
+			end
+	
+			return oldrepl(...)
+		end)
+	
+		oldbuf = hookfunction(buffer.writef32, function(...)
+			local buf, ind, data = ...
+			if data == -2.25 then
+				dumped = ind
+				dumpcaller = debug.info(3, 's')
+	
+				task.defer(function()
+					if oldbuf then
+						if restorefunction then
+							restorefunction(buffer.writef32)
+						else
+							hookfunction(buffer.writef32, oldbuf)
+						end
+	
+						oldbuf = nil
+					end
+				end)
+			end
+	
+			return oldbuf(...)
+		end)
+	end
+	
+	ClashSpoofer = vape.Categories.Blatant:CreateModule({
+		Name = 'ClashSpoofer',
+		Function = function(callback)
+			if callback then
+				if (os.clock() - starttime) < 2 then
+					task.defer(function()
+						task.delay(2, AddHook)
+					end)
+				else
+					AddHook()
+				end
+			else
+				if oldsend then
+					if restorefunction then
+						restorefunction(redline.Packet.Fire)
+					else
+						hookfunction(redline.Packet.Fire, oldsend)
+					end
+					oldsend = nil
+				end
+	
+				if oldrepl then
+					if restorefunction then
+						restorefunction(redline.ReplicateFunction)
+					else
+						hookfunction(redline.ReplicateFunction, oldrepl)
+					end
+					oldrepl = nil
+				end
+	
+				if oldbuf then
+					if restorefunction then
+						restorefunction(buffer.writef32)
+					else
+						hookfunction(buffer.writef32, oldbuf)
+					end
+					oldbuf = nil
+				end
+			end
+		end,
+		Tooltip = 'Spoofs velocity to a specified value to help win clashes. (RISKY)'
+	})
+	Spoof = ClashSpoofer:CreateSlider({
+		Name = 'Spoof value',
+		Min = 300,
+		Max = 800,
+		Default = 800,
+		Suffix = 'sps'
+	})
+	Add = ClashSpoofer:CreateToggle({
+		Name = 'Add velocity',
+		Tooltip = 'Add velocity instead of setting it, good for closet cheating.'
 	})
 end)
 
@@ -1601,25 +1610,31 @@ end)
 run(function()
 	local AutoToxic
 	local GG
-	local Toggles, Lists, said, dead = {}, {}, {}
+	local Toggles, Lists, Cloned, Presets = {}, {}, {}, {}
 	
 	local function sendMessage(name, obj, default)
-		local tab = Lists[name].ListEnabled
-		local custommsg = #tab > 0 and tab[math.random(1, #tab)] or default
-		if not custommsg then return end
-		if #tab > 1 and custommsg == said[name] then
-			repeat
-				task.wait()
-				custommsg = tab[math.random(1, #tab)]
-			until custommsg ~= said[name]
-		end
-		said[name] = custommsg
+		local message = default
+		if #Lists[name].ListEnabled > 0 then
+			if #Cloned[name] <= 0 then
+				Cloned[name] = table.clone(Lists[name].ListEnabled)
+			end
 	
-		custommsg = custommsg and custommsg:gsub('<obj>', obj or '') or ''
+			local entry = Random.new():NextInteger(1, #Cloned[name])
+			message = Cloned[name][entry]
+			table.remove(Cloned[name], entry)
+		end
+	
+		if not message then return end
+	
+		message = message and message:gsub('<obj>', obj or '') or ''
 		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-			textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(custommsg)
+			if textChatService:CanUserChatAsync(lplr.UserId) then
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
+			else
+				textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets[message] or Presets['So close'])
+			end
 		else
-			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(custommsg, 'All')
+			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
 		end
 	end
 	
@@ -1630,7 +1645,11 @@ run(function()
 				AutoToxic:Clean(vapeEvents.MatchEnded.Event:Connect(function(won)
 					if GG.Enabled then
 						if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-							textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('gg')
+							if textChatService:CanUserChatAsync(lplr.UserId) then
+								textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('gg')
+							else
+								textChatService.ChatInputBarConfiguration.TargetTextChannel:SendPresetAsync(Presets['Good game'])
+							end
 						else
 							replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('gg', 'All')
 						end
@@ -1651,6 +1670,7 @@ run(function()
 		Default = true
 	})
 	for _, v in {'Win'} do
+		Cloned[v] = {}
 		Toggles[v] = AutoToxic:CreateToggle({
 			Name = v..' ',
 			Function = function(callback)
@@ -1662,9 +1682,22 @@ run(function()
 		Lists[v] = AutoToxic:CreateTextList({
 			Name = v,
 			Darker = true,
-			Visible = false
+			Visible = false,
+			Function = function()
+				table.clear(Cloned[v])
+			end
 		})
 	end
+	
+	pcall(function()
+		for _, group in textChatService:GetPresetsAsync().categoryGroups do
+			for _, category in group.categories do
+				for _, message in category.messages do
+					Presets[message.value] = message.presetId
+				end
+			end
+		end
+	end)
 end)
 
 run(function()
