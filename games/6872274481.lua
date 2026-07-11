@@ -2249,8 +2249,8 @@ run(function()
 	SwingRange = Killaura:CreateSlider({
 		Name = 'Swing range',
 		Min = 1,
-		Max = 28,
-		Default = 28,
+		Max = 18,
+		Default = 18,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
 		end
@@ -2258,8 +2258,8 @@ run(function()
 	AttackRange = Killaura:CreateSlider({
 		Name = 'Attack range',
 		Min = 1,
-		Max = 28,
-		Default = 28,
+		Max = 18,
+		Default = 18,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
 		end
@@ -5713,7 +5713,7 @@ run(function()
 		end
 	end
 	
-	BedPlates = vape.Categories.Minigames:CreateModule({
+	BedPlates = vape.Categories.Render:CreateModule({
 		Name = 'BedPlates',
 		Function = function(callback)
 			if callback then
@@ -5913,7 +5913,7 @@ run(function()
 		return false
 	end
 	
-	Breaker = vape.Categories.Minigames:CreateModule({
+	Breaker = vape.Categories.Blatant:CreateModule({
 		Name = 'Breaker',
 		Function = function(callback)
 			if callback then
